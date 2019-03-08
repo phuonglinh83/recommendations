@@ -42,12 +42,15 @@ def get_similar_videos(V, top_k):
     return np.apply_along_axis(find_topk_similar, 1, similar_scores, top_k)
 
 
-U, V = build_model('movie_ratings.csv')
+U, V = build_model('LilyVideosRatings.csv')
+# U, V = build_model('movie_ratings.csv')
+
+# print(len(V[0]));
 
 # Find all predicted ratings by multiplying the U by V
 predicted_ratings = np.matmul(U, V)
 
-print(predicted_ratings[0])
+print(predicted_ratings[1])
 print(get_user_recommendation(predicted_ratings, 10))
 
 
@@ -58,3 +61,4 @@ print(diff_score(V[0], V[1]))
 print(diff_score(V[0], V[2]))
 print(diff_score_all(V[0], V))
 print(get_similar_videos(V, 5))
+print(get_similar_videos(U, 10))
