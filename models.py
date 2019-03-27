@@ -4,7 +4,7 @@ import matrix_factorization
 import psycopg2
 
 
-def build_model(input_file):
+def build_model(input_file, features):
     # Load user ratings
     raw_dataset_df = pd.read_csv(input_file)
 
@@ -12,9 +12,10 @@ def build_model(input_file):
     ratings_df = pd.pivot_table(raw_dataset_df, index='user_id', columns='movie_id', aggfunc=np.max)
 
     # Apply matrix factorization to find the latent features
-    return matrix_factorization.low_rank_matrix_factorization(ratings_df.as_matrix(),
-                                                              num_features=15,
+    U, V = matrix_factorization.low_rank_matrix_factorization(ratings_df.as_matrix(),
+                                                              num_features=features,
                                                               regularization_amount=0.1)
+    return ratings_df, U, V
 
 
 def find_topk_recommendations(row, top_k):
@@ -86,12 +87,37 @@ def evaluate(predicted_ratings, user_groups, video_groups, top_k):
     # print(match)
     return 100 * (0.0 + match) / (top_k * len(user_groups))
 
-top_k = 10
-U, V = build_model('LilyVideosRatings.csv')
+
+def RMSE(real, predicted):
+    return np.sqrt(np.nanmean(np.square(real - predicted)))
+
+
+def num_features_test():
+    for i in range(1, 21):
+        original_ratings, U, V = build_model('LilyVideosRatings.csv', i)
+        predicted_ratings = np.matmul(U, V)
+        print(i, RMSE(original_ratings, predicted_ratings))
+
+def num_features_test2():
+    user_groups = get_categories("user_group.csv")
+    video_groups = get_categories("video_group.csv")
+    for num_features in range(1, 21):
+        original_ratings, U, V = build_model('LilyVideosRatings.csv', num_features)
+        predicted_ratings = np.matmul(U, V)
+        print(num_features, RMSE(original_ratings, predicted_ratings), evaluate(predicted_ratings, user_groups, video_groups, 10))
+
+
+num_features_test2()
+
+original_ratings, U, V = build_model('LilyVideosRatings.csv', 15)
 # Find all predicted ratings by multiplying the U by V
 predicted_ratings = np.matmul(U, V)
+
+
+print(RMSE(original_ratings, predicted_ratings))
 # recommendations = get_user_recommendation(predicted_ratings, top_k)
 # db_import(U, V, predicted_ratings, recommendations)
+
 user_groups = get_categories("user_group.csv")
 video_groups = get_categories("video_group.csv")
 
