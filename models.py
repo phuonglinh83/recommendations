@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import matrix_factorization
-import psycopg2
 
 
 def build_model(input_file, features):
@@ -44,82 +43,17 @@ def get_similar_videos(V, top_k):
     return np.apply_along_axis(find_topk_similar, 1, similar_scores, top_k)
 
 
-def db_import(U, V, predicted_ratings, recommendations):
-    conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
-    cur = conn.cursor()
-    cur.execute("DELETE FROM recommendations")
-    for i in range(len(recommendations)):
-        for j in range(len(recommendations[0])):
-            statement = "INSERT INTO recommendations(user_id, video_id, score) VALUES (%d, %d, %f)" % (
-                i + 1, recommendations[i][j] + 1, predicted_ratings[i][recommendations[i][j]])
-            cur.execute(statement)
-    conn.commit()
+def build_recommendations(rating_file, top_k):
+    original_ratings, U, V = build_model(rating_file, 15)
+    # Find all predicted ratings by multiplying the U by V
+    predicted_ratings = np.matmul(U, V)
+    # Build recommendations
+    topk_recommendations = get_user_recommendation(predicted_ratings, top_k)
 
     V = np.transpose(V)
     similar_scores = np.apply_along_axis(diff_score_all, 1, V, V)
-    similars = get_similar_videos(V, 10)
+    topk_similars = get_similar_videos(V, top_k)
 
-    cur.execute("DELETE FROM similar_videos")
-    for i in range(len(similars)):
-        for j in range(len(similars[0])):
-            statement = "INSERT INTO similar_videos(video_id, similar_video_id, score) VALUES (%d, %d, %f)" % (
-                i + 1, similars[i][j] + 1, similar_scores[i][similars[i][j]])
-            cur.execute(statement)
-    conn.commit()
-    cur.close()
+    return predicted_ratings, topk_recommendations, similar_scores, topk_similars
 
 
-def get_categories(input_file):
-    categories = pd.read_csv(input_file)
-    results = {}
-    for index, row in categories.iterrows():
-        results[row[0]] = set(map(int, row[1].split('-')))
-    return results
-
-
-def evaluate(predicted_ratings, user_groups, video_groups, top_k):
-    recommendations = get_user_recommendation(predicted_ratings, top_k)
-    match = 0
-    for user in range(len(recommendations)):
-        for video in recommendations[user]:
-            if video_groups[video + 1] & user_groups[user + 1]:
-                match = match + 1
-    # print(match)
-    return 100 * (0.0 + match) / (top_k * len(user_groups))
-
-
-def RMSE(real, predicted):
-    return np.sqrt(np.nanmean(np.square(real - predicted)))
-
-
-def num_features_test():
-    for i in range(1, 21):
-        original_ratings, U, V = build_model('LilyVideosRatings.csv', i)
-        predicted_ratings = np.matmul(U, V)
-        print(i, RMSE(original_ratings, predicted_ratings))
-
-def num_features_test2():
-    user_groups = get_categories("user_group.csv")
-    video_groups = get_categories("video_group.csv")
-    for num_features in range(1, 21):
-        original_ratings, U, V = build_model('LilyVideosRatings.csv', num_features)
-        predicted_ratings = np.matmul(U, V)
-        print(num_features, RMSE(original_ratings, predicted_ratings), evaluate(predicted_ratings, user_groups, video_groups, 10))
-
-
-num_features_test2()
-
-original_ratings, U, V = build_model('LilyVideosRatings.csv', 15)
-# Find all predicted ratings by multiplying the U by V
-predicted_ratings = np.matmul(U, V)
-
-
-print(RMSE(original_ratings, predicted_ratings))
-# recommendations = get_user_recommendation(predicted_ratings, top_k)
-# db_import(U, V, predicted_ratings, recommendations)
-
-user_groups = get_categories("user_group.csv")
-video_groups = get_categories("video_group.csv")
-
-for top_k in range(1, 31):
-    print(top_k, evaluate(predicted_ratings, user_groups, video_groups, top_k))
