@@ -1,12 +1,18 @@
+import os
+
 import pandas as pd
 import datetime
 from random import random
 from itertools import groupby
 import psycopg2
 
+def get_db_conn():
+    DATABASE_URL = os.environ['DATABASE_URL']
+    return psycopg2.connect(DATABASE_URL)
 
 def import_activites(input_file):
-    conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    # conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    conn = get_db_conn()
     cur = conn.cursor()
     cur.execute("DELETE FROM activities")
     cur.execute(build_activity_load_stmt(input_file))
@@ -53,7 +59,8 @@ def print_value(out, user_id, video_id, action, count, time):
 def create_rating_csv(output_file):
     output = open(output_file, 'w')
     output.write("user_id,movie_id,value")
-    conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    # conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    conn = get_db_conn()
     cur = conn.cursor()
     cur.execute("SELECT user_id, video_id, action, count "
                 "FROM activities "
@@ -83,7 +90,8 @@ def action_to_score(action):
 
 
 def import_recommendations(predicted_ratings, topk_recommendations, similar_scores, topk_similars):
-    conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    # conn = psycopg2.connect("dbname='thesis' user='thesis' password='thesispass'")
+    conn = get_db_conn()
     cur = conn.cursor()
     cur.execute("DELETE FROM recommendations")
     for i in range(len(topk_recommendations)):

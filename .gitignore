@@ -1,2 +1,4 @@
 .idea/
 __pycache__
+rating_matrix
+load_activities.sql
